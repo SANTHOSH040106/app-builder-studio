@@ -193,21 +193,6 @@ export type Database = {
           },
         ]
       }
-      User: {
-        Row: {
-          email: string
-          "User Name": number
-        }
-        Insert: {
-          email?: string
-          "User Name"?: number
-        }
-        Update: {
-          email?: string
-          "User Name"?: number
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
