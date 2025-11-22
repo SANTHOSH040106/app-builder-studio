@@ -85,10 +85,41 @@ export const useCreateAppointment = () => {
           token_number: tokenData || 1,
           status: "scheduled",
         })
-        .select()
+        .select("*, doctors(*), hospitals(*)")
         .single();
 
       if (error) throw error;
+
+      // Get user profile for email
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      // Send confirmation notification
+      await supabase.functions.invoke("send-notification", {
+        body: {
+          user_id: user.id,
+          appointment_id: data.id,
+          type: "appointment_confirmation",
+          title: "Appointment Confirmed!",
+          message: `Your appointment has been successfully booked for ${new Date(
+            appointmentData.appointment_date
+          ).toLocaleDateString()} at ${appointmentData.appointment_time}.`,
+          email_data: {
+            recipient_email: user.email,
+            appointment_details: {
+              doctor_name: data.doctors?.name,
+              hospital_name: data.hospitals?.name,
+              date: appointmentData.appointment_date,
+              time: appointmentData.appointment_time,
+              token_number: data.token_number,
+            },
+          },
+        },
+      });
+
       return data;
     },
     onSuccess: () => {
@@ -106,12 +137,44 @@ export const useCancelAppointment = () => {
 
   return useMutation({
     mutationFn: async (appointmentId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Get appointment details first
+      const { data: appointment } = await supabase
+        .from("appointments")
+        .select("*, doctors(*), hospitals(*)")
+        .eq("id", appointmentId)
+        .single();
+
       const { error } = await supabase
         .from("appointments")
         .update({ status: "cancelled" })
         .eq("id", appointmentId);
 
       if (error) throw error;
+
+      // Send cancellation notification
+      if (appointment) {
+        await supabase.functions.invoke("send-notification", {
+          body: {
+            user_id: user.id,
+            appointment_id: appointmentId,
+            type: "appointment_cancelled",
+            title: "Appointment Cancelled",
+            message: `Your appointment with ${appointment.doctors?.name} has been cancelled.`,
+            email_data: {
+              recipient_email: user.email,
+              appointment_details: {
+                doctor_name: appointment.doctors?.name,
+                hospital_name: appointment.hospitals?.name,
+                date: appointment.appointment_date,
+                time: appointment.appointment_time,
+              },
+            },
+          },
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
