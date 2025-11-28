@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Clock, Calendar as CalendarIcon, DollarSign } from "lucide-react";
 import { useDoctorById } from "@/hooks/useDoctors";
 import { useAvailableSlots } from "@/hooks/useTimeSlots";
-import { useCreateAppointment } from "@/hooks/useAppointments";
+
 
 const Booking = () => {
   const [searchParams] = useSearchParams();
@@ -31,7 +31,7 @@ const Booking = () => {
     doctorId || undefined,
     selectedDate?.toISOString().split('T')[0]
   );
-  const createAppointment = useCreateAppointment();
+  
 
   const doctor = doctorData;
   const hospital = doctorData?.hospitals;
@@ -58,19 +58,23 @@ const Booking = () => {
       return;
     }
 
-    createAppointment.mutate(
-      {
-        doctor_id: doctorId!,
-        hospital_id: hospital.id,
-        appointment_date: selectedDate.toISOString().split('T')[0],
-        appointment_time: selectedTime,
-        appointment_type: appointmentType,
-        special_instructions: specialInstructions,
+    // Navigate to payment page with booking data
+    navigate("/payment", {
+      state: {
+        bookingData: {
+          doctorId: doctorId!,
+          doctorName: doctor.name,
+          doctorSpecialization: doctor.specialization,
+          hospitalId: hospital.id,
+          hospitalName: hospital.name,
+          appointmentDate: selectedDate.toISOString().split('T')[0],
+          appointmentTime: selectedTime,
+          appointmentType: appointmentType,
+          specialInstructions: specialInstructions,
+          consultationFee: doctor.consultation_fee,
+        },
       },
-      {
-        onSuccess: () => navigate("/appointments"),
-      }
-    );
+    });
   };
 
   if (loading || authLoading || !user) {
@@ -224,9 +228,9 @@ const Booking = () => {
           <Button
             className="flex-1"
             onClick={handleBooking}
-            disabled={createAppointment.isPending || !selectedDate || !selectedTime}
+            disabled={!selectedDate || !selectedTime}
           >
-            {createAppointment.isPending ? "Booking..." : "Confirm Booking"}
+            Proceed to Payment
           </Button>
         </div>
       </div>

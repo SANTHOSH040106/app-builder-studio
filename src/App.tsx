@@ -16,6 +16,7 @@ import Auth from "./pages/Auth";
 import HospitalDetail from "./pages/HospitalDetail";
 import DoctorDetail from "./pages/DoctorDetail";
 import Booking from "./pages/Booking";
+import Payment from "./pages/Payment";
 import AppointmentDetail from "./pages/AppointmentDetail";
 import NotFound from "./pages/NotFound";
 
@@ -38,6 +39,7 @@ const App = () => (
           {/* Protected Routes */}
           <Route path="/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
           <Route path="/booking" element={<ProtectedRoute><Booking /></ProtectedRoute>} />
+          <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
           <Route path="/appointment/:id" element={<ProtectedRoute><AppointmentDetail /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/profile/edit" element={<ProtectedRoute><ProfileEdit /></ProtectedRoute>} />
