@@ -2,14 +2,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export interface Review {
+// Public review interface (without user_id for privacy)
+export interface PublicReview {
   id: string;
-  user_id: string;
   doctor_id: string | null;
   hospital_id: string | null;
   rating: number;
   review: string | null;
   created_at: string;
+}
+
+// Full review interface for the user's own reviews
+export interface Review extends PublicReview {
+  user_id: string;
   updated_at: string;
 }
 
@@ -19,14 +24,15 @@ export const useReviewsByDoctor = (doctorId: string | undefined) => {
     queryFn: async () => {
       if (!doctorId) throw new Error("Doctor ID is required");
 
+      // Query reviews_ratings but only select non-sensitive fields
       const { data, error } = await supabase
         .from("reviews_ratings")
-        .select("*, profiles(full_name)")
+        .select("id, doctor_id, hospital_id, rating, review, created_at")
         .eq("doctor_id", doctorId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as PublicReview[];
     },
     enabled: !!doctorId,
   });
@@ -38,14 +44,15 @@ export const useReviewsByHospital = (hospitalId: string | undefined) => {
     queryFn: async () => {
       if (!hospitalId) throw new Error("Hospital ID is required");
 
+      // Query reviews_ratings but only select non-sensitive fields
       const { data, error } = await supabase
         .from("reviews_ratings")
-        .select("*, profiles(full_name)")
+        .select("id, doctor_id, hospital_id, rating, review, created_at")
         .eq("hospital_id", hospitalId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as PublicReview[];
     },
     enabled: !!hospitalId,
   });
@@ -64,10 +71,24 @@ export const useCreateReview = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      // Validate rating
+      if (reviewData.rating < 1 || reviewData.rating > 5) {
+        throw new Error("Rating must be between 1 and 5");
+      }
+
+      // Sanitize review text
+      const sanitizedReview = reviewData.review
+        ?.trim()
+        .slice(0, 2000)
+        .replace(/[<>]/g, "");
+
       const { data, error } = await supabase
         .from("reviews_ratings")
         .insert({
-          ...reviewData,
+          doctor_id: reviewData.doctor_id,
+          hospital_id: reviewData.hospital_id,
+          rating: reviewData.rating,
+          review: sanitizedReview || null,
           user_id: user.id,
         })
         .select()
