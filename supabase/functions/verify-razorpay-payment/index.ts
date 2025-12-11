@@ -12,28 +12,21 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unauthorized');
-    }
-
     const { 
       razorpay_order_id, 
       razorpay_payment_id, 
       razorpay_signature,
       appointmentData 
     } = await req.json();
+
+    // Validate required fields
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      throw new Error('Missing payment verification data');
+    }
+
+    if (!appointmentData || !appointmentData.doctor_id || !appointmentData.hospital_id) {
+      throw new Error('Missing appointment data');
+    }
 
     const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
     if (!razorpayKeySecret) {
@@ -42,7 +35,7 @@ serve(async (req) => {
 
     console.log('Verifying Razorpay payment:', razorpay_payment_id);
 
-    // Verify signature
+    // Verify signature - this is the security mechanism
     const crypto = await import("https://deno.land/std@0.177.0/crypto/mod.ts");
     const text = `${razorpay_order_id}|${razorpay_payment_id}`;
     const encoder = new TextEncoder();
@@ -64,13 +57,54 @@ serve(async (req) => {
 
     if (expectedSignature !== razorpay_signature) {
       console.error('Payment signature verification failed');
-      throw new Error('Payment verification failed');
+      throw new Error('Payment verification failed - invalid signature');
     }
 
     console.log('Payment verified successfully');
 
+    // Use service role client for database operations
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Get user_id from the auth header if available, otherwise from appointmentData
+    let userId: string | null = null;
+    
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader) {
+      const anonClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: { user } } = await anonClient.auth.getUser();
+      userId = user?.id || null;
+    }
+
+    // Fallback: Extract user_id from order notes by fetching the order
+    if (!userId) {
+      try {
+        const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID');
+        const orderResponse = await fetch(`https://api.razorpay.com/v1/orders/${razorpay_order_id}`, {
+          headers: {
+            'Authorization': 'Basic ' + btoa(`${razorpayKeyId}:${razorpayKeySecret}`),
+          },
+        });
+        const orderDetails = await orderResponse.json();
+        userId = orderDetails.notes?.user_id || null;
+        console.log('Got user_id from Razorpay order notes:', userId);
+      } catch (e) {
+        console.error('Failed to fetch order details:', e);
+      }
+    }
+
+    if (!userId) {
+      throw new Error('Could not determine user ID');
+    }
+
     // Get next token number
-    const { data: tokenData, error: tokenError } = await supabaseClient
+    const { data: tokenData, error: tokenError } = await serviceClient
       .rpc('get_next_token_number', {
         p_doctor_id: appointmentData.doctor_id,
         p_date: appointmentData.appointment_date,
@@ -84,10 +118,10 @@ serve(async (req) => {
     const tokenNumber = tokenData || 1;
 
     // Create appointment
-    const { data: appointment, error: appointmentError } = await supabaseClient
+    const { data: appointment, error: appointmentError } = await serviceClient
       .from('appointments')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         doctor_id: appointmentData.doctor_id,
         hospital_id: appointmentData.hospital_id,
         appointment_date: appointmentData.appointment_date,
@@ -107,16 +141,11 @@ serve(async (req) => {
 
     console.log('Appointment created successfully:', appointment.id);
 
-    // Record payment in payments table using service role client
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
+    // Record payment in payments table
     const { error: paymentError } = await serviceClient
       .from('payments')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         appointment_id: appointment.id,
         amount: appointmentData.consultation_fee || 0,
         currency: 'INR',
@@ -136,9 +165,9 @@ serve(async (req) => {
 
     // Send notification
     try {
-      await supabaseClient.functions.invoke('send-notification', {
+      await serviceClient.functions.invoke('send-notification', {
         body: {
-          userId: user.id,
+          userId: userId,
           type: 'appointment_confirmation',
           appointmentId: appointment.id,
         },
