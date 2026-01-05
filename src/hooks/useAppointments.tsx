@@ -26,7 +26,9 @@ export const useAppointments = (userId: string | undefined) => {
 
       const { data, error } = await supabase
         .from("appointments")
-        .select("*, doctors:doctors_public(*), hospitals(*)")
+        .select(
+          "*, doctors:doctors(id,name,specialization,qualification,experience,consultation_fee,rating,total_reviews,hospital_id,photo,availability_status), hospitals(*)"
+        )
         .eq("user_id", userId)
         .order("appointment_date", { ascending: false });
 
@@ -45,9 +47,11 @@ export const useAppointmentById = (id: string | undefined) => {
 
       const { data, error } = await supabase
         .from("appointments")
-        .select("*, doctors:doctors_public(*), hospitals(*)")
+        .select(
+          "*, doctors:doctors(id,name,specialization,qualification,experience,consultation_fee,rating,total_reviews,hospital_id,photo,availability_status), hospitals(*)"
+        )
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -85,8 +89,10 @@ export const useCreateAppointment = () => {
           token_number: tokenData || 1,
           status: "scheduled",
         })
-        .select("*, doctors:doctors_public(*), hospitals(*)")
-        .single();
+        .select(
+          "*, doctors:doctors(id,name,specialization,qualification,experience,consultation_fee,rating,total_reviews,hospital_id,photo,availability_status), hospitals(*)"
+        )
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -143,9 +149,11 @@ export const useCancelAppointment = () => {
       // Get appointment details first
       const { data: appointment } = await supabase
         .from("appointments")
-        .select("*, doctors:doctors_public(*), hospitals(*)")
+        .select(
+          "*, doctors:doctors(id,name,specialization,qualification,experience,consultation_fee,rating,total_reviews,hospital_id,photo,availability_status), hospitals(*)"
+        )
         .eq("id", appointmentId)
-        .single();
+        .maybeSingle();
 
       const { error } = await supabase
         .from("appointments")
