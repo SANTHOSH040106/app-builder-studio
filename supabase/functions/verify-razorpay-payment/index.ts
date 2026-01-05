@@ -43,18 +43,25 @@ serve(async (req) => {
       );
     }
 
-    // Validate the JWT token
+    // Validate the JWT token using service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
+    // Extract the JWT from the Authorization header
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create a client with service role to verify the token
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      }
     });
     
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      console.error("Invalid auth token:", authError?.message);
+      console.error("Invalid auth token:", authError?.message || 'Auth session missing!');
       return new Response(
         JSON.stringify({ error: 'Invalid or expired authentication token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -95,11 +102,8 @@ serve(async (req) => {
 
     console.log('Payment verified successfully');
 
-    // Use service role client for database operations
-    const serviceClient = createClient(
-      supabaseUrl,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // Use the same service role client for database operations
+    const serviceClient = supabase;
 
     // Get next token number
     const { data: tokenData, error: tokenError } = await serviceClient
