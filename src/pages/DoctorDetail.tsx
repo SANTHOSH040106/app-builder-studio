@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   Languages,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const DoctorDetail = () => {
@@ -42,16 +43,48 @@ const DoctorDetail = () => {
 
   const fetchDoctorData = async () => {
     setLoading(true);
+    setReviews([]);
 
-    const doctorResult = await supabase
-      .from("doctors")
-      .select(`${DOCTOR_PUBLIC_FIELDS}, hospitals(*)`)
-      .eq("id", id)
-      .single();
+    try {
+      // Prefer the base table (has FK so we can embed hospitals). If anything blocks it,
+      // fall back to the doctors_public view.
+      const { data: doctorData, error: doctorError } = await supabase
+        .from("doctors")
+        .select(`${DOCTOR_PUBLIC_FIELDS}, hospitals(*)`)
+        .eq("id", id)
+        .maybeSingle();
 
-    if (doctorResult.data) {
-      setDoctor(doctorResult.data);
-      setHospital(doctorResult.data.hospitals);
+      if (doctorError) throw doctorError;
+
+      if (doctorData) {
+        setDoctor(doctorData);
+        setHospital(doctorData.hospitals ?? null);
+      } else {
+        const { data: publicDoctor, error: publicDoctorError } = await supabase
+          .from("doctors_public")
+          .select(DOCTOR_PUBLIC_FIELDS)
+          .eq("id", id)
+          .maybeSingle();
+
+        if (publicDoctorError) throw publicDoctorError;
+
+        if (!publicDoctor) {
+          setDoctor(null);
+          setHospital(null);
+          setLoading(false);
+          return;
+        }
+
+        setDoctor(publicDoctor);
+
+        const { data: hospitalData } = await supabase
+          .from("hospitals")
+          .select("*")
+          .eq("id", publicDoctor.hospital_id)
+          .maybeSingle();
+
+        setHospital(hospitalData ?? null);
+      }
 
       const reviewsResult = await supabase
         .from("reviews_ratings")
@@ -61,9 +94,14 @@ const DoctorDetail = () => {
         .limit(10);
 
       if (reviewsResult.data) setReviews(reviewsResult.data);
+    } catch (e: any) {
+      console.error("Failed to load doctor", e);
+      toast.error(e?.message ? `Failed to load doctor: ${e.message}` : "Failed to load doctor");
+      setDoctor(null);
+      setHospital(null);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   if (loading) {
@@ -138,8 +176,8 @@ const DoctorDetail = () => {
                     <div className="flex items-center gap-6 flex-wrap">
                       <div className="flex items-center gap-1">
                         <Star className="h-5 w-5 fill-warning text-warning" />
-                        <span className="font-bold text-lg">{doctor.rating.toFixed(1)}</span>
-                        <span className="text-muted-foreground">({doctor.total_reviews} reviews)</span>
+                        <span className="font-bold text-lg">{(doctor.rating ?? 0).toFixed(1)}</span>
+                        <span className="text-muted-foreground">({doctor.total_reviews ?? 0} reviews)</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="h-5 w-5 text-primary" />

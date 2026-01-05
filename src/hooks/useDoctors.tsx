@@ -68,12 +68,12 @@ export const useDoctorById = (id: string | undefined) => {
     queryFn: async () => {
       if (!id) throw new Error("Doctor ID is required");
 
-      // Use doctors_public view to ensure email is never exposed
+      // Doctors are public directory data; select only safe fields (email is not selectable)
       const { data, error } = await supabase
-        .from("doctors_public")
-        .select(`*, hospitals(*)`)
+        .from("doctors")
+        .select(`${DOCTOR_PUBLIC_FIELDS}, hospitals(*)`)
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -88,10 +88,10 @@ export const useDoctorsByHospital = (hospitalId: string | undefined) => {
     queryFn: async () => {
       if (!hospitalId) throw new Error("Hospital ID is required");
 
-      // Use doctors_public view to ensure email is never exposed
+      // Doctors are public directory data; select only safe fields (email is not selectable)
       const { data, error } = await supabase
-        .from("doctors_public")
-        .select("*")
+        .from("doctors")
+        .select(DOCTOR_PUBLIC_FIELDS)
         .eq("hospital_id", hospitalId)
         .neq("availability_status", "inactive");
 
