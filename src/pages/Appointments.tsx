@@ -1,172 +1,49 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import { Calendar, Clock, MapPin, ChevronRight, Plus } from "lucide-react";
-import { format } from "date-fns";
+import { useAppointments } from "@/hooks/useAppointments";
+import { AppointmentCard } from "@/components/appointments/AppointmentCard";
+import { AppointmentEmptyState } from "@/components/appointments/AppointmentEmptyState";
+import { Plus } from "lucide-react";
 
 const Appointments = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
+  const { data: appointments = [], isLoading } = useAppointments(user?.id);
 
-  const [appointments, setAppointments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-      return;
-    }
-
-    if (user) {
-      fetchAppointments();
-    }
-  }, [user, authLoading]);
-
-  const fetchAppointments = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("appointments")
-        .select(`
-          *,
-          doctors (*),
-          hospitals (*)
-        `)
-        .eq("user_id", user?.id)
-        .order("appointment_date", { ascending: false });
-
-      if (error) throw error;
-      setAppointments(data || []);
-    } catch (error) {
-      console.error("Error fetching appointments:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load appointments",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "scheduled":
-        return "bg-blue-500";
-      case "completed":
-        return "bg-green-500";
-      case "cancelled":
-        return "bg-red-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
-  const filterAppointments = (filter: string) => {
+  const filteredAppointments = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (filter === "upcoming") {
-      // Upcoming: scheduled/confirmed appointments with date >= today
-      return appointments.filter((apt) => {
-        const aptDate = new Date(apt.appointment_date);
-        aptDate.setHours(0, 0, 0, 0);
-        return (apt.status === "scheduled" || apt.status === "confirmed") && aptDate >= today;
-      });
-    }
-    
-    if (filter === "completed") {
-      // Past: completed appointments OR scheduled/confirmed with date < today
-      return appointments.filter((apt) => {
-        const aptDate = new Date(apt.appointment_date);
-        aptDate.setHours(0, 0, 0, 0);
-        return apt.status === "completed" || 
-          ((apt.status === "scheduled" || apt.status === "confirmed") && aptDate < today);
-      });
-    }
-    
-    if (filter === "cancelled") {
-      return appointments.filter((apt) => apt.status === "cancelled");
-    }
-    
-    return appointments;
-  };
+    const upcoming = appointments.filter((apt) => {
+      const aptDate = new Date(apt.appointment_date);
+      aptDate.setHours(0, 0, 0, 0);
+      return (
+        (apt.status === "scheduled" || apt.status === "confirmed") &&
+        aptDate >= today
+      );
+    });
 
-  const AppointmentCard = ({ appointment }: { appointment: any }) => (
-    <Card
-      className="cursor-pointer hover:border-primary transition-colors"
-      onClick={() => navigate(`/appointment/${appointment.id}`)}
-    >
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-4 flex-1">
-            {appointment.doctors?.photo && (
-              <img
-                src={appointment.doctors.photo}
-                alt={appointment.doctors.name}
-                className="w-16 h-16 rounded-lg object-cover"
-              />
-            )}
-            <div className="flex-1">
-              <h3 className="font-semibold text-lg">
-                {appointment.doctors?.name}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {appointment.doctors?.specialization}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {appointment.hospitals?.name}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Badge className={getStatusColor(appointment.status)}>
-              {appointment.status}
-            </Badge>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          </div>
-        </div>
+    const past = appointments.filter((apt) => {
+      const aptDate = new Date(apt.appointment_date);
+      aptDate.setHours(0, 0, 0, 0);
+      return (
+        apt.status === "completed" ||
+        ((apt.status === "scheduled" || apt.status === "confirmed") &&
+          aptDate < today)
+      );
+    });
 
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />
-            <span>{format(new Date(appointment.appointment_date), "PP")}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            <span>{appointment.appointment_time}</span>
-          </div>
-        </div>
+    const cancelled = appointments.filter((apt) => apt.status === "cancelled");
 
-        {appointment.token_number && (
-          <div className="mt-3 pt-3 border-t">
-            <p className="text-sm">
-              <span className="font-medium">Token: </span>
-              <span className="text-primary font-semibold">
-                #{appointment.token_number}
-              </span>
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+    return { upcoming, past, cancelled };
+  }, [appointments]);
 
-  const EmptyState = ({ message }: { message: string }) => (
-    <div className="text-center py-12">
-      <Calendar className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-      <p className="text-muted-foreground">{message}</p>
-    </div>
-  );
-
-  if (loading || authLoading) {
+  if (authLoading) {
     return (
       <MainLayout>
         <div className="container py-6">
@@ -174,6 +51,11 @@ const Appointments = () => {
         </div>
       </MainLayout>
     );
+  }
+
+  if (!user) {
+    navigate("/auth");
+    return null;
   }
 
   return (
@@ -189,40 +71,66 @@ const Appointments = () => {
 
         <Tabs defaultValue="upcoming" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="completed">Past</TabsTrigger>
+            <TabsTrigger value="upcoming" className="relative">
+              Upcoming
+              {filteredAppointments.upcoming.length > 0 && (
+                <span className="ml-2 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  {filteredAppointments.upcoming.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="past">Past</TabsTrigger>
             <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="upcoming" className="space-y-4 mt-6">
-            {filterAppointments("upcoming").length > 0 ? (
-              filterAppointments("upcoming").map((appointment) => (
-                <AppointmentCard key={appointment.id} appointment={appointment} />
-              ))
-            ) : (
-              <EmptyState message="No upcoming appointments" />
-            )}
-          </TabsContent>
+          {isLoading ? (
+            <div className="space-y-4 mt-6">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <TabsContent value="upcoming" className="space-y-4 mt-6">
+                {filteredAppointments.upcoming.length > 0 ? (
+                  filteredAppointments.upcoming.map((appointment) => (
+                    <AppointmentCard
+                      key={appointment.id}
+                      appointment={appointment}
+                    />
+                  ))
+                ) : (
+                  <AppointmentEmptyState type="upcoming" />
+                )}
+              </TabsContent>
 
-          <TabsContent value="completed" className="space-y-4 mt-6">
-            {filterAppointments("completed").length > 0 ? (
-              filterAppointments("completed").map((appointment) => (
-                <AppointmentCard key={appointment.id} appointment={appointment} />
-              ))
-            ) : (
-              <EmptyState message="No past appointments" />
-            )}
-          </TabsContent>
+              <TabsContent value="past" className="space-y-4 mt-6">
+                {filteredAppointments.past.length > 0 ? (
+                  filteredAppointments.past.map((appointment) => (
+                    <AppointmentCard
+                      key={appointment.id}
+                      appointment={appointment}
+                    />
+                  ))
+                ) : (
+                  <AppointmentEmptyState type="past" />
+                )}
+              </TabsContent>
 
-          <TabsContent value="cancelled" className="space-y-4 mt-6">
-            {filterAppointments("cancelled").length > 0 ? (
-              filterAppointments("cancelled").map((appointment) => (
-                <AppointmentCard key={appointment.id} appointment={appointment} />
-              ))
-            ) : (
-              <EmptyState message="No cancelled appointments" />
-            )}
-          </TabsContent>
+              <TabsContent value="cancelled" className="space-y-4 mt-6">
+                {filteredAppointments.cancelled.length > 0 ? (
+                  filteredAppointments.cancelled.map((appointment) => (
+                    <AppointmentCard
+                      key={appointment.id}
+                      appointment={appointment}
+                    />
+                  ))
+                ) : (
+                  <AppointmentEmptyState type="cancelled" />
+                )}
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </div>
     </MainLayout>
