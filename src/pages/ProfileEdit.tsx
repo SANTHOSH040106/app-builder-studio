@@ -29,10 +29,10 @@ const ProfileEdit = () => {
   // Form state
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("+91 ");
   const [address, setAddress] = useState("");
   const [emergencyContact, setEmergencyContact] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
+  const [emergencyPhone, setEmergencyPhone] = useState("+91 ");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [bloodGroup, setBloodGroup] = useState("");
   const [medicalHistory, setMedicalHistory] = useState("");
@@ -64,7 +64,7 @@ const ProfileEdit = () => {
         if (error && error.code !== "PGRST116") {
           console.error("Error loading profile:", error);
         } else if (profile) {
-          setPhone(profile.phone || "");
+          setPhone(profile.phone || "+91 ");
           setAddress(profile.address || "");
           setEmergencyContact(profile.emergency_contact || "");
           setEmergencyPhone(profile.emergency_phone || "");
@@ -232,8 +232,16 @@ const ProfileEdit = () => {
                   id="phone"
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Ensure +91 prefix is always present
+                    if (!value.startsWith("+91")) {
+                      setPhone("+91 " + value.replace(/^\+91\s*/, ""));
+                    } else {
+                      setPhone(value);
+                    }
+                  }}
+                  placeholder="+91 98765 43210"
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
@@ -273,8 +281,16 @@ const ProfileEdit = () => {
                   id="emergencyPhone"
                   type="tel"
                   value={emergencyPhone}
-                  onChange={(e) => setEmergencyPhone(e.target.value)}
-                  placeholder="+1 (555) 987-6543"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Ensure +91 prefix is always present
+                    if (!value.startsWith("+91")) {
+                      setEmergencyPhone("+91 " + value.replace(/^\+91\s*/, ""));
+                    } else {
+                      setEmergencyPhone(value);
+                    }
+                  }}
+                  placeholder="+91 98765 43210"
                 />
               </div>
             </div>
