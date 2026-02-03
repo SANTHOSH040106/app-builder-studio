@@ -26,6 +26,7 @@ const Booking = lazy(() => import("./pages/Booking"));
 const Payment = lazy(() => import("./pages/Payment"));
 const PaymentHistory = lazy(() => import("./pages/PaymentHistory"));
 const AppointmentDetail = lazy(() => import("./pages/AppointmentDetail"));
+const Pharmacy = lazy(() => import("./pages/Pharmacy"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="/search" element={<Search />} />
               <Route path="/hospital/:id" element={<HospitalDetail />} />
               <Route path="/doctor/:id" element={<DoctorDetail />} />
+              <Route path="/pharmacy" element={<Pharmacy />} />
               
               {/* Protected Routes */}
               <Route path="/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
