@@ -363,6 +363,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pharmacy: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          image_path: string | null
+          name: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          image_path?: string | null
+          name: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          image_path?: string | null
+          name?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
