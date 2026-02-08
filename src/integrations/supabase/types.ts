@@ -19,14 +19,20 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           appointment_type: string
+          consultation_fee: number | null
+          consultation_notes: string | null
           created_at: string | null
           doctor_id: string
+          follow_up_date: string | null
           hospital_id: string
           id: string
+          payment_status: string
+          priority_fee: number | null
           queue_position: number | null
           special_instructions: string | null
           status: string
           token_number: number | null
+          token_type: string
           updated_at: string | null
           user_id: string
         }
@@ -34,14 +40,20 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           appointment_type?: string
+          consultation_fee?: number | null
+          consultation_notes?: string | null
           created_at?: string | null
           doctor_id: string
+          follow_up_date?: string | null
           hospital_id: string
           id?: string
+          payment_status?: string
+          priority_fee?: number | null
           queue_position?: number | null
           special_instructions?: string | null
           status?: string
           token_number?: number | null
+          token_type?: string
           updated_at?: string | null
           user_id: string
         }
@@ -49,14 +61,20 @@ export type Database = {
           appointment_date?: string
           appointment_time?: string
           appointment_type?: string
+          consultation_fee?: number | null
+          consultation_notes?: string | null
           created_at?: string | null
           doctor_id?: string
+          follow_up_date?: string | null
           hospital_id?: string
           id?: string
+          payment_status?: string
+          priority_fee?: number | null
           queue_position?: number | null
           special_instructions?: string | null
           status?: string
           token_number?: number | null
+          token_type?: string
           updated_at?: string | null
           user_id?: string
         }
@@ -608,6 +626,24 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       public_doctors: {
@@ -816,6 +852,18 @@ export type Database = {
           slot_time: string
         }[]
       }
+      get_doctor_queue: {
+        Args: { p_date: string; p_doctor_id: string }
+        Returns: {
+          appointment_id: string
+          appointment_time: string
+          patient_name: string
+          queue_position: number
+          status: string
+          token_number: number
+          token_type: string
+        }[]
+      }
       get_doctor_statistics: {
         Args: { p_doctor_id: string }
         Returns: {
@@ -828,6 +876,34 @@ export type Database = {
       get_next_token_number: {
         Args: { p_date: string; p_doctor_id: string }
         Returns: number
+      }
+      get_revenue_summary: {
+        Args: { p_date?: string }
+        Returns: {
+          normal_tokens: number
+          overall_revenue: number
+          priority_tokens: number
+          total_consultation_income: number
+          total_patients: number
+          total_priority_income: number
+        }[]
+      }
+      get_upcoming_followups: {
+        Args: { p_days?: number }
+        Returns: {
+          appointment_id: string
+          consultation_notes: string
+          doctor_name: string
+          follow_up_date: string
+          patient_name: string
+        }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       is_doctor_for_appointment: {
         Args: { doctor_id: string }
@@ -881,7 +957,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "doctor" | "patient"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1008,6 +1084,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "doctor", "patient"],
+    },
   },
 } as const
