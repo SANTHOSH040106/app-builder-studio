@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { RoleBasedRoute } from "@/components/auth/RoleBasedRoute";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { Loader2 } from "lucide-react";
 
@@ -27,6 +28,8 @@ const Payment = lazy(() => import("./pages/Payment"));
 const PaymentHistory = lazy(() => import("./pages/PaymentHistory"));
 const AppointmentDetail = lazy(() => import("./pages/AppointmentDetail"));
 const Pharmacy = lazy(() => import("./pages/Pharmacy"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const DoctorDashboard = lazy(() => import("./pages/DoctorDashboard"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,6 +74,10 @@ const App = () => (
               <Route path="/profile/edit" element={<ProtectedRoute><ProfileEdit /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+              
+              {/* Role-Based Routes */}
+              <Route path="/admin" element={<RoleBasedRoute allowedRoles={["admin"]}><AdminDashboard /></RoleBasedRoute>} />
+              <Route path="/doctor-dashboard" element={<RoleBasedRoute allowedRoles={["doctor"]}><DoctorDashboard /></RoleBasedRoute>} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

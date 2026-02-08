@@ -24,6 +24,7 @@ const Booking = () => {
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState("");
   const [appointmentType, setAppointmentType] = useState("consultation");
+  const [tokenType, setTokenType] = useState<"normal" | "priority">("normal");
   const [specialInstructions, setSpecialInstructions] = useState("");
 
   const { data: doctorData, isLoading: doctorLoading } = useDoctorById(doctorId || undefined);
@@ -58,7 +59,8 @@ const Booking = () => {
       return;
     }
 
-    // Navigate to payment page with booking data
+    const priorityFee = tokenType === "priority" ? Math.round(doctor.consultation_fee * 0.5) : 0;
+    
     navigate("/payment", {
       state: {
         bookingData: {
@@ -70,8 +72,10 @@ const Booking = () => {
           appointmentDate: selectedDate.toISOString().split('T')[0],
           appointmentTime: selectedTime,
           appointmentType: appointmentType,
+          tokenType: tokenType,
           specialInstructions: specialInstructions,
           consultationFee: doctor.consultation_fee,
+          priorityFee: priorityFee,
         },
       },
     });
@@ -219,6 +223,39 @@ const Booking = () => {
                 )}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Token Type */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Token Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup value={tokenType} onValueChange={(v) => setTokenType(v as "normal" | "priority")}>
+              <div className="flex items-center justify-between p-3 rounded-lg border">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="normal" id="normal" />
+                  <Label htmlFor="normal" className="cursor-pointer">
+                    <span className="font-medium">Normal Token</span>
+                    <p className="text-xs text-muted-foreground">Standard queue</p>
+                  </Label>
+                </div>
+                <span className="font-semibold">₹{doctor.consultation_fee}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 mt-2">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="priority" id="priority" />
+                  <Label htmlFor="priority" className="cursor-pointer">
+                    <span className="font-medium text-amber-700 dark:text-amber-400">⚡ Priority Token</span>
+                    <p className="text-xs text-muted-foreground">Skip ahead in queue</p>
+                  </Label>
+                </div>
+                <span className="font-semibold text-amber-700 dark:text-amber-400">
+                  ₹{doctor.consultation_fee + Math.round(doctor.consultation_fee * 0.5)}
+                </span>
+              </div>
+            </RadioGroup>
           </CardContent>
         </Card>
 
